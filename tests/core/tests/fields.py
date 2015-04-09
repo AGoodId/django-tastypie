@@ -582,6 +582,16 @@ class DateTimeFieldTestCase(TestCase):
         field_4.instance_name = 'datetime'
         self.assertEqual(field_4.hydrate(bundle_4), None)
 
+        bundle_5 = Bundle(data={'datetime': 'foo'})
+        field_5 = DateTimeField()
+        field_5.instance_name = 'datetime'
+        self.assertRaises(ApiFieldError, field_5.hydrate, bundle_5)
+
+        bundle_6 = Bundle(data={'datetime': ['a', 'list', 'used', 'to', 'crash']})
+        field_6 = DateTimeField()
+        field_6.instance_name = 'datetime'
+        self.assertRaises(ApiFieldError, field_6.hydrate, bundle_6)
+
 
 class UserResource(ModelResource):
     class Meta:
@@ -706,6 +716,9 @@ class ToOneFieldTestCase(TestCase):
         field_2 = ToManyField(UserResource, lambda bundle: User.objects.filter(pk=1))
         self.assertEqual(field_2.dehydrate(bundle), ['/api/v1/users/1/'])
 
+        field_3 = ToOneField(UserResource, lambda bundle:None)
+        self.assertRaises(ApiFieldError, field_3.dehydrate, bundle)
+
     def test_dehydrate_full_detail_list(self):
         note = Note.objects.get(pk=1)
         request = MockRequest()
@@ -719,7 +732,7 @@ class ToOneFieldTestCase(TestCase):
         #list path with full_detail=False
         request.path = "/api/v1/notes/1/"
         field_1 = ToOneField(UserResource, 'author', full=True, full_detail=False)
-        self.assertEqual(field_1.dehydrate(bundle), '/api/v1/users/1/')
+        self.assertEqual(field_1.dehydrate(bundle, for_list=False), '/api/v1/users/1/')
 
     def test_hydrate(self):
         note = Note()
@@ -886,7 +899,8 @@ class ToOneFieldTestCase(TestCase):
 
     def test_traversed_attribute_dehydrate(self):
         user = User.objects.get(pk=1)
-        mediabit = MediaBit(note=Note(author=user))
+        note = Note.objects.create(author=user)
+        mediabit = MediaBit(note=note)
         bundle = Bundle(obj=mediabit)
 
         field_1 = ToOneField(UserResource, 'note__author')
@@ -1090,7 +1104,7 @@ class ToManyFieldTestCase(TestCase):
         request = MockRequest()
         request.path = "/api/v1/subjects/%(pk)s/" % {'pk': self.note_1.pk}
         bundle_1 = Bundle(obj=self.note_1, request=request)
-        self.assertEqual(field_1.dehydrate(bundle_1), ['/api/v1/subjects/1/', '/api/v1/subjects/2/'])
+        self.assertEqual(field_1.dehydrate(bundle_1, for_list=False), ['/api/v1/subjects/1/', '/api/v1/subjects/2/'])
 
         #list path with full_detail=False
         field_2 = ToManyField(SubjectResource, 'subjects', full=True, full_detail=False)
@@ -1125,7 +1139,7 @@ class ToManyFieldTestCase(TestCase):
         request = MockRequest()
         request.path = "/api/v1/subjects/%(pk)s/" % {'pk': self.note_1.pk}
         bundle_4 = Bundle(obj=self.note_1, request=request)
-        subject_bundle_list = field_4.dehydrate(bundle_4)
+        subject_bundle_list = field_4.dehydrate(bundle_4, for_list=False)
         self.assertEqual(len(subject_bundle_list), 2)
         self.assertEqual(isinstance(subject_bundle_list[0], Bundle), True)
         self.assertEqual(subject_bundle_list[0].data['name'], u'News')
@@ -1190,7 +1204,7 @@ class ToManyFieldTestCase(TestCase):
         request = MockRequest()
         request.path = "/api/v1/subjects/%(pk)s/" % {'pk': self.note_1.pk}
         bundle_8 = Bundle(obj=self.note_1, request=request)
-        self.assertEqual(field_8.dehydrate(bundle_8), ['/api/v1/subjects/1/', '/api/v1/subjects/2/'])
+        self.assertEqual(field_8.dehydrate(bundle_8, for_list=False), ['/api/v1/subjects/1/', '/api/v1/subjects/2/'])
 
         #detail url with full_detail=True and get parameters
         field_9 = ToManyField(SubjectResource, 'subjects', full=True, full_detail=True)
